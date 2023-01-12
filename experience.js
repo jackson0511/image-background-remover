@@ -1,41 +1,25 @@
 const Jimp = require("jimp");
 const fs = require("fs-extra");
 const { access } = require("fs/promises");
-// const upscale = require("pixel-scale-epx");
-// const getPixels = require("get-pixels");
 
-// const BACKGROUND_COLOR_TO_REPLACE = Jimp.rgbaToInt(255, 0, 0, 255); //RED
-const BACKGROUND_COLOR_TO_REPLACE = Jimp.cssColorToHex("#B9EFF7"); //Charlotte
+// constant declaration
 const LINE_COLOR = Jimp.cssColorToHex("black");
-// const COLOR_YELLOW = Jimp.cssColorToHex("yellow");
-console.log("LINE_COLOR: ", LINE_COLOR);
-// const BACKGROUND_COLOR_TO_REPLACE_RGBA = Jimp.intToRGBA(
-//   BACKGROUND_COLOR_TO_REPLACE
-// );
-console.log(BACKGROUND_COLOR_TO_REPLACE);
-// console.log(BACKGROUND_COLOR_TO_REPLACE_RGBA);
 const WHITE = Jimp.cssColorToHex("white");
 const TRANSPARENT_COLOR = 00000000;
 const BLACK_SHADE = 152;
-// 0xffffffff
-
 const colorObj = {};
-let colorList = [];
 const colorObjStep1 = {};
-let colorListStep1 = [];
-const colorObjStep2 = {};
-let colorListStep2 = [];
-// const fileName = "pixilart-drawing.png";
-const fileName = "tong-hop-tranh-to-mau-cho-be-5-tuoi-du-cac-chu-de-25.jpg";
 // const fileName = "20221213_seal_v001.jpg";
+const fileName = "tong-hop-tranh-to-mau-cho-be-5-tuoi-du-cac-chu-de-25.jpg";
+const fileNameArr = fileName.split(".");
+let colorList = [];
+let colorListStep1 = [];
 let imgWidth = 0;
 let imgHeight = 0;
-let imageInArr = [];
-const fileNameArr = fileName.split(".");
 
 /**
  * Save Color to TXT file for tracking
- * @param array colorList
+ * @param {number[]} colorList list of hex color
  */
 async function saveColorToTXT(colorList, step = "0") {
   fs.writeFile(
@@ -53,8 +37,8 @@ async function saveColorToTXT(colorList, step = "0") {
 
 /**
  * Save Color to JSON file for tracking
- * @param array colorList
- * @param object colorObj
+ * @param {number[]} colorList list of hex color
+ * @param {object} colorObj coordinates of each color
  */
 async function saveColorToJSON(colorList, colorObj) {
   fs.writeFile(
@@ -66,6 +50,11 @@ async function saveColorToJSON(colorList, colorObj) {
   );
 }
 
+/**
+ * Check file is exist
+ * @param {string} path path of file to check
+ * @returns boolean
+ */
 const fExists = async (path) => {
   try {
     await access(path);
@@ -75,15 +64,11 @@ const fExists = async (path) => {
   }
 };
 
-const fExists1 = async (path) => {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
+/**
+ * Check hex color is black or not
+ * @param {int} color hex color
+ * @returns boolean
+ */
 function isBlack(color) {
   const rgba = Jimp.intToRGBA(color);
   if (
@@ -95,6 +80,11 @@ function isBlack(color) {
   return false;
 }
 
+/**
+ * Get black colors from color list
+ * @param {number[]} colorList list of hex color
+ * @returns hex colors are black
+ */
 function getBlackColor(colorList) {
   const blackColorList = [255];
   colorList.forEach((color) => {
@@ -107,12 +97,11 @@ function getBlackColor(colorList) {
 
 /**
  * Clone image
- * @param string fileName
+ * @param {string} fileName name of image to clone
  */
 async function cloneImage(fileName) {
   await Jimp.read(`./${fileName}`)
     .then((image) => {
-      // image.background(LINE_COLOR).write(`./jimp/${fileName}`);
       image.grayscale().contrast(1).write(`./jimp/${fileNameArr[0]}.png`);
     })
     .catch((err) => {
@@ -122,14 +111,10 @@ async function cloneImage(fileName) {
 
 /**
  * Upload image
- * @param string fileName
  */
-async function uploadImage(fileName) {
-  // await Jimp.read(`./jimp/${fileName}`)
+async function uploadImage() {
   await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
     .then((image) => {
-      // console.log(image);
-
       // bitmap for png | _exif for jpg
       imgWidth = image._exif ? image._exif.imageSize.width : image.bitmap.width;
       imgHeight = image._exif
@@ -162,16 +147,12 @@ async function uploadImage(fileName) {
  * Color background with BACKGROUND_COLOR_TO_REPLACE
  * 4294967295 is value of white
  * 255 is value of black
- * @param string fileName
- * @param string color
- * @param object colorObj
+ * @param {string} color hex color
+ * @param {object} colorObj coordinates of each color
  */
-async function replaceBackgroundColor(fileName, color, colorObj) {
+async function replaceBackgroundColor(color, colorObj) {
   await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
     .then((image) => {
-      // colorObj[colorList[1]].forEach(coord => {
-      // colorObj[4294967295].forEach(coord => {
-      // colorObj[0].forEach(coord => {
       getBlackColor(colorList).forEach((blackColor) => {
         colorObj[blackColor].forEach((coord) => {
           image.setPixelColor(color, parseInt(coord[0]), parseInt(coord[1]));
@@ -192,16 +173,21 @@ async function replaceBackgroundColor(fileName, color, colorObj) {
     });
 }
 
+/**
+ * get pixel color in image at w and h
+ * @param {any} image image to get color
+ * @param {number} w coordinates x
+ * @param {number} h coordinates y
+ * @returns {number} hex color in image at w and h
+ */
 function getColor(image, w, h) {
   return image.getPixelColor(w, h);
 }
 
 /**
- * Upload image
- * @param string fileName
+ * Upload image after step 1
  */
-async function uploadImageAfterStep1(fileName) {
-  // await Jimp.read(`./jimp/${fileName}`)
+async function uploadImageAfterStep1() {
   await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
     .then((image) => {
       // Get image's pixel color list
@@ -232,21 +218,21 @@ async function uploadImageAfterStep1(fileName) {
             );
           }
         }
+        for (let widthIdx = imgWidth; widthIdx > 0; widthIdx--) {
+            color = getColor(image, widthIdx, heightIdx);
+            if (
+              color == TRANSPARENT_COLOR &&
+              !isBlack(getColor(image, widthIdx + 1, heightIdx))
+            ) {
+              image.setPixelColor(WHITE, parseInt(widthIdx), parseInt(heightIdx));
+            }
+          }
       }
 
       for (let heightIdx = imgHeight; heightIdx > 0; heightIdx--) {
         for (let widthIdx = imgWidth; widthIdx > 0; widthIdx--) {
+          // console.log(`(${widthIdx}, ${heightIdx})`);
           color = getColor(image, widthIdx, heightIdx);
-          // if (!colorListStep1.includes(color)) {
-          //   colorListStep1.push(color);
-          // }
-          // if (colorObjStep1[color] === undefined) {
-          //   colorObjStep1[color] = [[widthIdx, heightIdx]];
-          // } else {
-          //   tempArr = colorObjStep1[color];
-          //   tempArr.push([widthIdx, heightIdx]);
-          //   colorObjStep1[color] = tempArr;
-          // }
           if (
             color == TRANSPARENT_COLOR &&
             !isBlack(getColor(image, widthIdx, heightIdx + 1)) &&
@@ -256,6 +242,21 @@ async function uploadImageAfterStep1(fileName) {
           }
         }
       }
+
+      for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
+        for (let heightIdx = imgHeight; heightIdx > 0; heightIdx--) {
+          // console.log(`(${widthIdx}, ${heightIdx})`);
+          color = getColor(image, widthIdx, heightIdx);
+          if (
+            color == TRANSPARENT_COLOR &&
+            !isBlack(getColor(image, widthIdx, heightIdx + 1))
+          ) {
+            // console.log('true');
+            image.setPixelColor(WHITE, parseInt(widthIdx), parseInt(heightIdx));
+          }
+        }
+      }
+      
       return image;
     })
     .then((image) => {
@@ -278,9 +279,6 @@ async function uploadImageAfterStep1(fileName) {
 async function replaceBackgroundColorStep1(fileName, color, colorObj) {
   await Jimp.read(`./jimp/step1-${fileName}`)
     .then((image) => {
-      // colorObj[colorList[1]].forEach(coord => {
-      // colorObj[4294967295].forEach(coord => {
-      // colorObj[0].forEach(coord => {
       colorListStep1.forEach((colorStep1) => {
         if (!isBlack(colorStep1)) {
           colorObj[colorStep1].forEach((coord) => {
@@ -306,12 +304,12 @@ async function replaceBackgroundColorStep1(fileName, color, colorObj) {
 async function checkImageExist(fileName) {
   if (await fExists(`./jimp/${fileNameArr[0]}.png`)) {
     console.log("File is here");
-    await uploadImage(fileName);
+    await uploadImage();
     await saveColorToTXT(colorList);
-    await replaceBackgroundColor(fileName, LINE_COLOR, colorObj);
+    await replaceBackgroundColor(LINE_COLOR, colorObj);
     const isImageStep1Existed = setInterval(() => {
       checkImageExistStep1(fileName);
-      if (fExists1(`./jimp/step1-${fileNameArr[0]}.png`)) {
+      if (fExists(`./jimp/step1-${fileNameArr[0]}.png`)) {
         clearInterval(isImageStep1Existed);
       }
     }, 1000);
@@ -326,28 +324,9 @@ async function checkImageExist(fileName) {
  * @param string fileName
  */
 async function checkImageExistStep1(fileName) {
-  if (await fExists1(`./jimp/step1-${fileNameArr[0]}.png`)) {
+  if (await fExists(`./jimp/step1-${fileNameArr[0]}.png`)) {
     console.log("File is here");
-    await uploadImageAfterStep1(fileName);
-    // await saveColorToTXT(colorListStep1, "1");
-    // await saveColorToTXT(imageInArr, "-image");
-    // let pointingString = "";
-    // colorListStep1.forEach((colorStep1) => {
-    //   if (isBlack(colorStep1)) {
-    //     colorObj[colorStep1].forEach((coord, idx) => {
-    //       idx === 0
-    //         ? (pointingString += `${coord[0]},${coord[1]}`)
-    //         : (pointingString += ` ${coord[0]},${coord[1]}`);
-    //     });
-    //   }
-    // });
-    // await saveColorToTXT([pointingString], "svg-pointing");
-    // await replaceBackgroundColorStep1(
-    //   fileName,
-    //   TRANSPARENT_COLOR,
-    //   colorObjStep1
-    // );
-    // await replaceBackgroundColor(fileName, BACKGROUND_COLOR_TO_REPLACE, colorObj);
+    await uploadImageAfterStep1();
     console.log("Done Processing");
   } else {
     console.log("File not here - so make one");

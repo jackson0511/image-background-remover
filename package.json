@@ -10,9 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "fs-extra": "^11.1.0",
-    "get-pixels": "^3.3.3",
-    "gm": "^1.25.0",
-    "jimp": "^0.16.2",
-    "pixel-scale-epx": "^0.0.129"
+    "jimp": "^0.16.2"
   }
 }
