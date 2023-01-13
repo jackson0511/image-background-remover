@@ -9,8 +9,8 @@ const TRANSPARENT_COLOR = 00000000;
 const BLACK_SHADE = 152;
 const colorObj = {};
 const colorObjStep1 = {};
-// const fileName = "20221213_seal_v001.jpg";
-const fileName = "tong-hop-tranh-to-mau-cho-be-5-tuoi-du-cac-chu-de-25.jpg";
+const fileName = "20221213_seal_v001.jpg";
+// const fileName = "tong-hop-tranh-to-mau-cho-be-5-tuoi-du-cac-chu-de-25.jpg";
 const fileNameArr = fileName.split(".");
 let colorList = [];
 let colorListStep1 = [];
@@ -113,34 +113,23 @@ async function cloneImage(fileName) {
  * Upload image
  */
 async function uploadImage() {
-  await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
-    .then((image) => {
-      // bitmap for png | _exif for jpg
-      imgWidth = image._exif ? image._exif.imageSize.width : image.bitmap.width;
-      imgHeight = image._exif
-        ? image._exif.imageSize.height
-        : image.bitmap.height;
+  const image = await Jimp.read(`./jimp/${fileNameArr[0]}.png`);
+  // bitmap for png | _exif for jpg
+  imgWidth = image._exif ? image._exif.imageSize.width : image.bitmap.width;
+  imgHeight = image._exif
+    ? image._exif.imageSize.height
+    : image.bitmap.height;
 
-      // Get image's pixel color list
-      for (let heightIdx = 0; heightIdx < imgHeight; heightIdx++) {
-        for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
-          color = image.getPixelColor(widthIdx, heightIdx);
-          if (!colorList.includes(color)) {
-            colorList.push(color);
-          }
-          if (colorObj[color] === undefined) {
-            colorObj[color] = [[widthIdx, heightIdx]];
-          } else {
-            tempArr = colorObj[color];
-            tempArr.push([widthIdx, heightIdx]);
-            colorObj[color] = tempArr;
-          }
-        }
-      }
-    })
-    .catch((err) => {
-      console.log({ err });
-    });
+  // Get image's pixel color list
+  for (let heightIdx = 0; heightIdx < imgHeight; heightIdx++) {
+    for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
+      const color = image.getPixelColor(widthIdx, heightIdx);
+      colorList.includes(color) || colorList.push(color);
+      colorObj[color] === undefined
+        ? colorObj[color] = [[widthIdx, heightIdx]]
+        : colorObj[color].push([widthIdx, heightIdx]);
+    }
+  }
 }
 
 /**
@@ -151,26 +140,18 @@ async function uploadImage() {
  * @param {object} colorObj coordinates of each color
  */
 async function replaceBackgroundColor(color, colorObj) {
-  await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
-    .then((image) => {
-      getBlackColor(colorList).forEach((blackColor) => {
-        colorObj[blackColor].forEach((coord) => {
-          image.setPixelColor(color, parseInt(coord[0]), parseInt(coord[1]));
-        });
-      });
-      return image;
-    })
-    .then((image) => {
-      // Output image with background colored
-      image
-        .grayscale()
-        .contrast(1)
-        .resize(imgWidth, imgHeight, Jimp.RESIZE_NEAREST_NEIGHBOR)
-        .write(`./jimp/step1-${fileNameArr[0]}.png`);
-    })
-    .catch((err) => {
-      console.log({ err });
+  const image = await Jimp.read(`./jimp/${fileNameArr[0]}.png`);
+  getBlackColor(colorList).forEach((blackColor) => {
+    colorObj[blackColor].forEach((coord) => {
+      image.setPixelColor(color, coord[0], coord[1]);
     });
+  });
+  // Output image with background colored
+  return image
+    .grayscale()
+    .contrast(1)
+    .resize(imgWidth, imgHeight, Jimp.RESIZE_NEAREST_NEIGHBOR)
+    .write(`./jimp/step1-${fileNameArr[0]}.png`);
 }
 
 /**
@@ -188,84 +169,67 @@ function getColor(image, w, h) {
  * Upload image after step 1
  */
 async function uploadImageAfterStep1() {
-  await Jimp.read(`./jimp/${fileNameArr[0]}.png`)
-    .then((image) => {
-      // Get image's pixel color list
-      const checkColor = [TRANSPARENT_COLOR, LINE_COLOR];
+  const image = await Jimp.read(`./jimp/${fileNameArr[0]}.png`);
+  // Get image's pixel color list
+  const checkColor = [TRANSPARENT_COLOR, LINE_COLOR];
 
-      for (let heightIdx = 0; heightIdx < imgHeight; heightIdx++) {
-        for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
-          color = getColor(image, widthIdx, heightIdx);
-          if (!colorListStep1.includes(color)) {
-            colorListStep1.push(color);
-          }
-          if (colorObjStep1[color] === undefined) {
-            colorObjStep1[color] = [[widthIdx, heightIdx]];
-          } else {
-            tempArr = colorObjStep1[color];
-            tempArr.push([widthIdx, heightIdx]);
-            colorObjStep1[color] = tempArr;
-          }
-          if (
-            color != LINE_COLOR &&
-            checkColor.includes(getColor(image, widthIdx, heightIdx - 1)) &&
-            checkColor.includes(getColor(image, widthIdx - 1, heightIdx))
-          ) {
-            image.setPixelColor(
-              TRANSPARENT_COLOR,
-              parseInt(widthIdx),
-              parseInt(heightIdx)
-            );
-          }
-        }
-        for (let widthIdx = imgWidth; widthIdx > 0; widthIdx--) {
-            color = getColor(image, widthIdx, heightIdx);
-            if (
-              color == TRANSPARENT_COLOR &&
-              !isBlack(getColor(image, widthIdx + 1, heightIdx))
-            ) {
-              image.setPixelColor(WHITE, parseInt(widthIdx), parseInt(heightIdx));
-            }
-          }
+  for (let heightIdx = 0; heightIdx < imgHeight; heightIdx++) {
+    for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
+      const color = getColor(image, widthIdx, heightIdx);
+      // push color into color list if not exist
+      colorListStep1.includes(color) || colorListStep1.push(color);
+      // push color's position into color object
+      colorObjStep1[color] === undefined
+        ? colorObjStep1[color] = [[widthIdx, heightIdx]]
+        : colorObjStep1[color].push([widthIdx, heightIdx]);
+      // replace transparent color
+      if (
+        color != LINE_COLOR &&
+        checkColor.includes(getColor(image, widthIdx, heightIdx - 1)) &&
+        checkColor.includes(getColor(image, widthIdx - 1, heightIdx))
+      ) {
+        image.setPixelColor(TRANSPARENT_COLOR, widthIdx, heightIdx);
       }
+    }
 
-      for (let heightIdx = imgHeight; heightIdx > 0; heightIdx--) {
-        for (let widthIdx = imgWidth; widthIdx > 0; widthIdx--) {
-          // console.log(`(${widthIdx}, ${heightIdx})`);
-          color = getColor(image, widthIdx, heightIdx);
-          if (
-            color == TRANSPARENT_COLOR &&
-            !isBlack(getColor(image, widthIdx, heightIdx + 1)) &&
-            !isBlack(getColor(image, widthIdx + 1, heightIdx))
-          ) {
-            image.setPixelColor(WHITE, parseInt(widthIdx), parseInt(heightIdx));
-          }
-        }
+    for (let widthIdx = imgWidth; widthIdx > 0; widthIdx--) {
+      const color = getColor(image, widthIdx, heightIdx);
+      if (
+        color == TRANSPARENT_COLOR &&
+        !isBlack(getColor(image, widthIdx + 1, heightIdx))
+      ) {
+        image.setPixelColor(WHITE, widthIdx, heightIdx);
       }
+    }
+  }
 
-      for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
-        for (let heightIdx = imgHeight; heightIdx > 0; heightIdx--) {
-          // console.log(`(${widthIdx}, ${heightIdx})`);
-          color = getColor(image, widthIdx, heightIdx);
-          if (
-            color == TRANSPARENT_COLOR &&
-            !isBlack(getColor(image, widthIdx, heightIdx + 1))
-          ) {
-            // console.log('true');
-            image.setPixelColor(WHITE, parseInt(widthIdx), parseInt(heightIdx));
-          }
-        }
+  for (let heightIdx = imgHeight - 1; heightIdx >= 0; heightIdx--) {
+    for (let widthIdx = imgWidth - 1; widthIdx >= 0; widthIdx--) {
+      // console.log(`(${widthIdx}, ${heightIdx})`);
+      const color = getColor(image, widthIdx, heightIdx);
+      if (
+        color == TRANSPARENT_COLOR &&
+        !isBlack(getColor(image, widthIdx, heightIdx + 1)) &&
+        !isBlack(getColor(image, widthIdx + 1, heightIdx))
+      ) {
+        image.setPixelColor(WHITE, widthIdx, heightIdx);
       }
-      
-      return image;
-    })
-    .then((image) => {
-      // Output image with background colored
-      image.contrast(1).write(`./jimp/step2-${fileNameArr[0]}.png`);
-    })
-    .catch((err) => {
-      console.log({ err });
-    });
+    }
+  }
+
+  for (let widthIdx = 0; widthIdx < imgWidth; widthIdx++) {
+    for (let heightIdx = imgHeight - 1; heightIdx >= 0; heightIdx--) {
+      const color = getColor(image, widthIdx, heightIdx);
+      if (
+        color == TRANSPARENT_COLOR &&
+        !isBlack(getColor(image, widthIdx, heightIdx + 1))
+      ) {
+        image.setPixelColor(WHITE, widthIdx, heightIdx);
+      }
+    }
+  }
+  
+  return image.contrast(1).write(`./jimp/step2-${fileNameArr[0]}.png`);
 }
 
 /**
@@ -336,7 +300,7 @@ async function checkImageExistStep1(fileName) {
  * Image Processor
  * @param string fileName
  */
-async function imageProcessor(fileName) {
+async function main(fileName) {
   console.log("imageProcessor begin");
 
   await cloneImage(fileName);
@@ -349,4 +313,4 @@ async function imageProcessor(fileName) {
   }, 1000);
 }
 
-imageProcessor(fileName);
+main(fileName);
